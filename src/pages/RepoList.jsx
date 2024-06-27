@@ -1,54 +1,54 @@
-
-import React, { useContext, useEffect, useState } from 'react';
-import { Box, Button, Input, Spinner, Stack } from '@chakra-ui/react';
+import React, { useContext, useState } from 'react';
+import { Box, Button, Input, Spinner, Stack, useDisclosure } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../api/axios';
 import { GithubContext } from '../context/GithubContext';
+import RepoModal from '../components/RepoModal';
 
 const RepoList = () => {
-  const { repos, setRepos, loading, setLoading, error, setError } = useContext(GithubContext);
-  const [search, setSearch] = useState('');
+  const { repos, setRepos, loading, error } = useContext(GithubContext);
+  const {isOpen, onOpen, onClose} = useDisclosure();
+  const [selectedRepo, setSelectedRepo] = useState(null);
 
-  useEffect(() => {
-    const fetchRepos = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get('https://api.github.com/users/el-suraj/repos');
-        setRepos(response.data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const handleDelete = async(name) => {
+    try{
+      await axiosInstance.delete(`/repo/el-suraj/${name}`);
+      setRepos(repos.filter(repo => repo.name !== name));
+    }catch (error){
+      console.error(error);
+    }
+  };
 
-    fetchRepos();
-  }, [setRepos, setLoading, setError]);
-
-  const filteredRepos = repos.filter(repo => repo.name.includes(search));
+  const handleSave = (repo) => {
+    if (selectedRepo){
+      setRepos(repos.map(r => (r.name === selectedRepo.name ? repo : r)));
+    }else{
+      setRepos([repo, ...repos]);
+    }
+    setSelectedRepo(null);
+  };
 
   return (
     <Box p={5}>
-      <Input
-        placeholder="Search Repositories"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+       <Button onClick={onOpen} colorScheme="teal">Create New Repo</Button>
+       <RepoModal isOpen={isOpen} onClose={onClose} repo={selectedRepo} onSave={handleSave} />
+      <Stack spacing={4} mt={5}>
       {loading ? (
         <Spinner />
       ) : error ? (
         <Box>{error}</Box>
       ) : (
-        <Stack spacing={4} mt={5}>
-          {filteredRepos.map(repo => (
-            <Box key={repo.id} p={5} shadow="md" borderWidth="1px">
+        repos.map(repo => (
+          <Box key={repo.id} p={5} shadow="md" borderWidth="1px">
               <Link to={`/repo/${repo.name}`}>
                 <Button>{repo.name}</Button>
               </Link>
+              <Button onClick={() => { setSelectedRepo(repo); onOpen(); }} ml={4}>Edit</Button>
+              <Button onClick={() => handleDelete(repo.name)} ml={4} colorScheme="red">Delete</Button>
             </Box>
-          ))}
+          ))
+        )}
         </Stack>
-      )}
     </Box>
   );
 };
